@@ -1,13 +1,8 @@
 package org.opennms;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
-import java.util.ArrayList;
-import java.util.List;
-
+import com.maxmind.geoip2.DatabaseReader;
+import com.maxmind.geoip2.exception.GeoIp2Exception;
+import com.maxmind.geoip2.model.CityResponse;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.StringEntity;
@@ -16,26 +11,32 @@ import org.apache.http.util.EntityUtils;
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
-
-import com.maxmind.geoip2.DatabaseReader;
-import com.maxmind.geoip2.exception.GeoIp2Exception;
-import com.maxmind.geoip2.model.CityResponse;
-
 import processing.core.PApplet;
 import processing.core.PConstants;
 import processing.core.PGraphics;
 import processing.data.JSONArray;
 import processing.data.JSONObject;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.util.ArrayList;
+import java.util.List;
+
 public class OnmsNetflowMap extends PApplet {
-    @Option(name = "-h", usage = "elastic search host")
-    private String elasticSearchHost = "localhost";
+    @Option(name = "-host", usage = "elastic search host")
+    private String host = "localhost";
 
-    @Option(name = "-p", usage = "elastic search port")
-    private int elasticSearchPort = 9200;
+    @Option(name = "-port", usage = "elastic search port")
+    private int port = 9200;
 
-    @Option(name = "-a", usage = "public address to use when resolving private networks")
-    private String localAddress = "8.8.8.8";
+    @Option(name = "-local", usage = "local public address to use when resolving private networks")
+    private String local = "8.8.8.8";
+
+    @Option(name = "-sample", usage = "only visualize every n-th sample")
+    private int sample = 1;
 
     private final String WORLD_FILENAME = "world.txt";
     private final long DELAY = 250;
@@ -45,6 +46,7 @@ public class OnmsNetflowMap extends PApplet {
     private DatabaseReader databaseReader;
     private double stepSize = 5.0;
     private long lastTimestamp = System.currentTimeMillis();
+    private int counter = 0;
 
     private CityResponse localResponse;
 
@@ -56,7 +58,7 @@ public class OnmsNetflowMap extends PApplet {
         }
 
         try {
-            localResponse = databaseReader.city(InetAddress.getByName(localAddress));
+            localResponse = databaseReader.city(InetAddress.getByName(local));
         } catch (IOException e) {
             e.printStackTrace();
         } catch (GeoIp2Exception e) {
@@ -200,10 +202,12 @@ public class OnmsNetflowMap extends PApplet {
 
 
     public void settings() {
-        size(1280, 700);
+        size(1280, 720);
     }
 
     public void setup() {
+        getSurface().setResizable(true);
+
         background(0);
         noStroke();
 
@@ -259,18 +263,25 @@ public class OnmsNetflowMap extends PApplet {
                 continue;
             }
 
-            try {
-                final CityResponse srcResponse = srcAddress.isSiteLocalAddress() ? localResponse : databaseReader.city(srcAddress);
-                final CityResponse dstResponse = dstAddress.isSiteLocalAddress() ? localResponse : databaseReader.city(dstAddress);
+            if (counter >= sample) {
+                counter = 1;
 
-                if (srcResponse.getLocation().getLongitude() != dstResponse.getLocation().getLongitude() || srcResponse.getLocation().getLatitude() != dstResponse.getLocation().getLatitude()) {
-                    final Curve c = new Curve(srcResponse, dstResponse, impactSize);
-                    curves.add(c);
+                try {
+                    final CityResponse srcResponse = srcAddress.isSiteLocalAddress() ? localResponse : databaseReader.city(srcAddress);
+                    final CityResponse dstResponse = dstAddress.isSiteLocalAddress() ? localResponse : databaseReader.city(dstAddress);
+
+                    if (srcResponse.getLocation().getLongitude() != dstResponse.getLocation().getLongitude() || srcResponse.getLocation().getLatitude() != dstResponse.getLocation().getLatitude()) {
+                        final Curve c = new Curve(srcResponse, dstResponse, impactSize);
+                        curves.add(c);
+                    }
+                } catch (IOException | GeoIp2Exception e) {
+                    continue;
                 }
-            } catch (IOException | GeoIp2Exception e) {
-                continue;
+            } else {
+                counter++;
             }
         }
+
     }
 
     private JSONObject request(final long last) {
@@ -278,7 +289,7 @@ public class OnmsNetflowMap extends PApplet {
         final DefaultHttpClient httpClient = new DefaultHttpClient();
 
         try {
-            final HttpPost httpPost = new HttpPost("http://" + elasticSearchHost + ":" + elasticSearchPort + "/_search?size=1000");
+            final HttpPost httpPost = new HttpPost("http://" + host + ":" + port + "/_search?size=1000");
             httpPost.setEntity(new StringEntity(data));
             httpPost.addHeader("Content-Type", "application/json");
             final HttpResponse response = httpClient.execute(httpPost);
@@ -346,6 +357,7 @@ public class OnmsNetflowMap extends PApplet {
             PApplet.runSketch(new String[]{"OpenNMSNetflowMap"}, onmsNetflowMap);
         } catch (CmdLineException e) {
             e.printStackTrace();
+            parser.printUsage(System.err);
         }
     }
 }

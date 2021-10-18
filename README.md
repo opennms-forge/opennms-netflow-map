@@ -12,9 +12,10 @@ and after that, execute the utility by entering:
 
 Command line options:
 
-     -h the ElasticSearch host to be used, default is localhost
-     -p the ElasticSearch port to be used, default is 9200
-     -a a public IP address to be used instead when resolving private IP addresses, default is 8.8.8.8
+     -host the ElasticSearch host to be used, default is localhost
+     -port the ElasticSearch port to be used, default is 9200
+     -local a public IP address to be used instead when resolving private IP addresses, default is 8.8.8.8
+     -sample, only visualize every n-th sample
 
 Easiest way is to ssh into your ElasticSearch box and forward traffic to the ElasticSearch port:
 
