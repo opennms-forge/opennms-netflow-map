@@ -35,7 +35,7 @@ public class OnmsNetflowMap extends PApplet {
     private int elasticSearchPort = 9200;
 
     @Option(name = "-a", usage = "public address to use when resolving private networks")
-    private String localAddress = "193.174.29.55";
+    private String localAddress = "8.8.8.8";
 
     private final String WORLD_FILENAME = "world.txt";
     private final long DELAY = 250;
