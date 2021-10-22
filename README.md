@@ -2,6 +2,8 @@
 
 Small utility to display a wargame-like map visualizing the flows collected by OpenNMS.
 
+<img width="1392" alt="Screenshot" src="https://user-images.githubusercontent.com/4200555/138401153-6c0ffb55-d11f-473f-875b-021c386accd2.png">
+
 In order to use the tool, download `GeoLite2-City.mmdb` from Maxmind and place it in the `src/main/resources directory`. After that you can build by entering:
 
     $ mvn install
