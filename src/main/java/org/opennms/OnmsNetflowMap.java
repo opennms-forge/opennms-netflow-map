@@ -35,6 +35,9 @@ public class OnmsNetflowMap extends PApplet {
     @Option(name = "-local", usage = "local public address to use when resolving private networks")
     private String local = "8.8.8.8";
 
+    @Option(name = "-exporter", usage = "limit to flows by this exporter")
+    private String exporter = null;
+
     @Option(name = "-sample", usage = "only visualize every n-th sample")
     private int sample = 1;
 
@@ -241,6 +244,11 @@ public class OnmsNetflowMap extends PApplet {
 
     private void queryElasticSearchForFlows() {
         final JSONObject jsonObject = request(lastTimestamp);
+
+        if (jsonObject == null) {
+            return;
+        }
+
         final JSONArray array = jsonObject.getJSONObject("hits").getJSONArray("hits");
         final int flowCount = array.size();
 
@@ -248,6 +256,11 @@ public class OnmsNetflowMap extends PApplet {
             final JSONObject object = array.getJSONObject(i).getJSONObject("_source");
 
             lastTimestamp = Math.max(lastTimestamp, object.getLong("@timestamp"));
+
+            if (exporter != null && !exporter.equals(object.getString("host"))) {
+                continue;
+            }
+
             InetAddress srcAddress = null;
             InetAddress dstAddress = null;
             try {
@@ -295,7 +308,7 @@ public class OnmsNetflowMap extends PApplet {
             final HttpResponse response = httpClient.execute(httpPost);
             return parseJSONObject(EntityUtils.toString(response.getEntity()));
         } catch (Exception e) {
-            e.printStackTrace();
+            System.err.println("Error connecting to Elastic Search: " + e.getMessage());
         } finally {
             httpClient.getConnectionManager().shutdown();
         }
